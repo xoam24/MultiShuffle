@@ -1,0 +1,4 @@
+name: MultiShuffle
+version: '1.0-SNAPSHOT'
+main: cz.xoam24.multishuffle.MultiShuffle
+api-version: '1.21'

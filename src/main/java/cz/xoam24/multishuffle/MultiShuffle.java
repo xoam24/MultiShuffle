@@ -12,6 +12,7 @@ public final class MultiShuffle extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        public void
         // Plugin shutdown logic
     }
 }

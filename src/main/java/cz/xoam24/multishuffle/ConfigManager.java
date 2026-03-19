@@ -26,11 +26,9 @@ public class ConfigManager {
         return parseComponent(prefix + rawMessage, placeholders);
     }
 
-    // Extrémně robustní parser, který převádí legacy (&a) a hex (&#ff0000) na nativní MiniMessage tagy
     public Component parseComponent(String text, TagResolver... resolvers) {
         if (text == null) return Component.empty();
 
-        // Klasické znaky a paragrafy
         text = text.replace("&0", "<black>").replace("&1", "<dark_blue>").replace("&2", "<dark_green>")
                 .replace("&3", "<dark_aqua>").replace("&4", "<dark_red>").replace("&5", "<dark_purple>")
                 .replace("&6", "<gold>").replace("&7", "<gray>").replace("&8", "<dark_gray>")
@@ -47,7 +45,6 @@ public class ConfigManager {
                 .replace("§f", "<white>").replace("§l", "<bold>").replace("§m", "<strikethrough>")
                 .replace("§n", "<underlined>").replace("§o", "<italic>").replace("§r", "<reset>");
 
-        // HEX barvy (&#RRGGBB na <#RRGGBB>)
         text = text.replaceAll("&#([a-fA-F0-9]{6})", "<#$1>");
 
         return miniMessage.deserialize(text, resolvers);
@@ -57,7 +54,9 @@ public class ConfigManager {
     public int getDefaultRoundTime() { return getConfig().getInt("game.default_round_time", 300); }
     public int getAnnouncementDelay() { return getConfig().getInt("game.announcement_delay", 5); }
     public int getDefaultRounds() { return getConfig().getInt("game.default_rounds", 5); }
-    public List<String> getItems() { return getConfig().getStringList("lists.items"); }
-    public List<String> getBlocks() { return getConfig().getStringList("lists.blocks"); }
+
+    // OPRAVA: config má "items:" a "blocks:" na root levelu, ne pod "lists."
+    public List<String> getItems() { return getConfig().getStringList("items"); }
+    public List<String> getBlocks() { return getConfig().getStringList("blocks"); }
     public List<String> getAbilities() { return getConfig().getStringList("abilities.rewards"); }
 }

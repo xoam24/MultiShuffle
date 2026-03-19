@@ -28,8 +28,21 @@ public class GameManager {
         if (currentSession != null) return;
         ConfigManager config = plugin.getConfigManager();
         currentSession = new GameSession(type, mode, config.getDefaultRounds(), config.getDefaultRoundTime());
+
+        // Pro SAME mode inicializujeme sdílený pool hned na začátku
+        if (mode == GameSession.Mode.SAME) {
+            List<String> pool = type == GameSession.Type.ITEM
+                    ? config.getItems()
+                    : config.getBlocks();
+            currentSession.initSharedPool(pool);
+        }
+
+        // OPRAVA: assignTargets PŘED showScoreboards, aby placeholder měl data hned
         assignTargets();
         plugin.getScoreboardManager().showScoreboards();
+        // Okamžitě zaktualizovat scoreboard s přiřazenými targety
+        plugin.getScoreboardManager().updateScoreboards();
+
         Bukkit.broadcast(config.getMessage("game_started", Placeholder.parsed("mode", mode.name())));
 
         gameTask = new BukkitRunnable() {
@@ -37,7 +50,7 @@ public class GameManager {
             public void run() {
                 if (currentSession == null) { this.cancel(); return; }
 
-                // Kontrola Itemů v inventáři (Neprůstřelná metoda pro ItemShuffle)
+                // Kontrola Itemů v inventáři pro ItemShuffle
                 if (currentSession.getType() == GameSession.Type.ITEM) {
                     checkInventories();
                 }
@@ -57,6 +70,8 @@ public class GameManager {
                         currentSession.incrementRound();
                         currentSession.setRemainingSeconds(plugin.getConfigManager().getDefaultRoundTime());
                         assignTargets();
+                        // Okamžitě zaktualizovat scoreboard s novými targety
+                        plugin.getScoreboardManager().updateScoreboards();
                     }
                 }
             }
@@ -72,14 +87,12 @@ public class GameManager {
             if (targetKey == null) continue;
 
             Material targetMat = Material.matchMaterial(targetKey);
-            // Zkontroluje, zda hráč má item u sebe kdekoli v inventáři
             if (targetMat != null && p.getInventory().contains(targetMat)) {
                 handleSuccess(p, targetMat);
             }
         }
     }
 
-    // Centralizovaná metoda pro připsání bodu (volá ji GameManager i GameListener)
     public void handleSuccess(Player player, Material material) {
         if (currentSession == null || currentSession.hasFinished(player.getUniqueId())) return;
 
@@ -90,7 +103,6 @@ public class GameManager {
         currentSession.markFinished(player.getUniqueId());
         giveAbility(player);
 
-        // Zformátování jména materiálu pro zprávy (např. "OAK LOG" -> "oak log")
         String prettyName = material.name().replace("_", " ").toLowerCase();
 
         player.sendMessage(plugin.getConfigManager().getMessage("target_found",
@@ -99,6 +111,8 @@ public class GameManager {
         Bukkit.broadcast(plugin.getConfigManager().getMessage("target_broadcast",
                 Placeholder.parsed("player", player.getName()),
                 Placeholder.parsed("target", prettyName)));
+
+        plugin.getScoreboardManager().updateScoreboards();
     }
 
     public void stopGame() {
@@ -123,7 +137,8 @@ public class GameManager {
                 Placeholder.parsed("time", String.valueOf(seconds)),
                 Placeholder.parsed("multishuffle_round", String.valueOf(currentSession.getCurrentRound()))
         );
-        Title title = Title.title(titleStr, subtitleStr, Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(500)));
+        Title title = Title.title(titleStr, subtitleStr,
+                Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(500)));
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.showTitle(title);
             p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
@@ -133,7 +148,8 @@ public class GameManager {
     private void endGame() {
         if (currentSession == null) return;
         List<Map.Entry<UUID, Integer>> sortedPlayers = currentSession.getAllPoints().entrySet().stream()
-                .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed()).collect(Collectors.toList());
+                .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed())
+                .collect(Collectors.toList());
 
         currentSession = null;
         plugin.getScoreboardManager().hideScoreboards();
@@ -182,20 +198,41 @@ public class GameManager {
         UUID winnerUuid = sortedPlayers.get(0).getKey();
         for (Map.Entry<UUID, Integer> entry : sortedPlayers) {
             UUID uuid = entry.getKey();
-            plugin.getSqliteManager().savePlayerStatsAsync(uuid, Bukkit.getOfflinePlayer(uuid).getName(), uuid.equals(winnerUuid), entry.getValue());
+            plugin.getSqliteManager().savePlayerStatsAsync(uuid,
+                    Bukkit.getOfflinePlayer(uuid).getName(),
+                    uuid.equals(winnerUuid),
+                    entry.getValue());
         }
     }
 
     public void assignTargets() {
         if (currentSession == null) return;
         currentSession.resetFinishedThisRound();
-        List<String> pool = currentSession.getType() == GameSession.Type.ITEM ? plugin.getConfigManager().getItems() : plugin.getConfigManager().getBlocks();
-        if (pool.isEmpty()) return;
-        Random random = new Random();
-        String sameTarget = pool.get(random.nextInt(pool.size()));
 
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            currentSession.setTarget(p.getUniqueId(), currentSession.getMode() == GameSession.Mode.SAME ? sameTarget : pool.get(random.nextInt(pool.size())));
+        List<String> pool = currentSession.getType() == GameSession.Type.ITEM
+                ? plugin.getConfigManager().getItems()
+                : plugin.getConfigManager().getBlocks();
+
+        if (pool == null || pool.isEmpty()) {
+            plugin.getLogger().warning("[MultiShuffle] Pool je prázdný! Zkontroluj config.yml - sekce 'items:' nebo 'blocks:'");
+            return;
+        }
+
+        if (currentSession.getMode() == GameSession.Mode.SAME) {
+            // SAME mode: všichni dostanou stejný target ze sdíleného poolu
+            String sharedTarget = currentSession.pickNextSharedTarget();
+            if (sharedTarget == null) return;
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                currentSession.setTarget(p.getUniqueId(), sharedTarget);
+            }
+        } else {
+            // RANDOM mode: každý hráč dostane unikátní target, který ještě nedostal
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                String target = currentSession.pickUniqueTargetForPlayer(p.getUniqueId(), pool);
+                if (target != null) {
+                    currentSession.setTarget(p.getUniqueId(), target);
+                }
+            }
         }
     }
 
@@ -205,9 +242,12 @@ public class GameManager {
         if (abilities.isEmpty()) return;
         String[] parts = abilities.get(new Random().nextInt(abilities.size())).split(":");
         if (parts.length == 3) {
-            PotionEffectType type = org.bukkit.Registry.POTION_EFFECT_TYPE.get(NamespacedKey.minecraft(parts[0].toLowerCase()));
-            if (type != null) player.addPotionEffect(new PotionEffect(type, Integer.parseInt(parts[2]) * 20, Integer.parseInt(parts[1]) - 1));
+            PotionEffectType type = org.bukkit.Registry.POTION_EFFECT_TYPE.get(
+                    NamespacedKey.minecraft(parts[0].toLowerCase()));
+            if (type != null) player.addPotionEffect(new PotionEffect(
+                    type, Integer.parseInt(parts[2]) * 20, Integer.parseInt(parts[1]) - 1));
         }
     }
+
     public GameSession getCurrentSession() { return currentSession; }
 }

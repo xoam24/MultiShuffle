@@ -28,17 +28,29 @@ public class ScoreboardManager {
         GameSession session = plugin.getGameManager().getCurrentSession();
         if (session == null) return;
 
-        String path = session.getType() == GameSession.Type.ITEM ? "scoreboards.item_shuffle" : "scoreboards.block_shuffle";
-        Component title = plugin.getConfigManager().parseComponent(plugin.getConfigManager().getConfig().getString(path + ".title", "MultiShuffle"));
-
         for (Player p : Bukkit.getOnlinePlayers()) {
-            Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
-            Objective obj = board.registerNewObjective("ms_board", Criteria.DUMMY, title);
-            obj.setDisplaySlot(DisplaySlot.SIDEBAR);
-
-            p.setScoreboard(board);
-            scoreboards.put(p.getUniqueId(), board);
+            createBoardForPlayer(p, session);
         }
+    }
+
+    /**
+     * Vytvoří a přiřadí scoreboard konkrétnímu hráči.
+     * Voláno jak při startu hry, tak když hráč vstoupí mid-game.
+     */
+    public void createBoardForPlayer(Player p, GameSession session) {
+        String path = session.getType() == GameSession.Type.ITEM
+                ? "scoreboards.item_shuffle"
+                : "scoreboards.block_shuffle";
+
+        Component title = plugin.getConfigManager().parseComponent(
+                plugin.getConfigManager().getConfig().getString(path + ".title", "MultiShuffle"));
+
+        Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
+        Objective obj = board.registerNewObjective("ms_board", Criteria.DUMMY, title);
+        obj.setDisplaySlot(DisplaySlot.SIDEBAR);
+
+        p.setScoreboard(board);
+        scoreboards.put(p.getUniqueId(), board);
     }
 
     public void hideScoreboards() {
@@ -52,12 +64,20 @@ public class ScoreboardManager {
         GameSession session = plugin.getGameManager().getCurrentSession();
         if (session == null) return;
 
-        String path = session.getType() == GameSession.Type.ITEM ? "scoreboards.item_shuffle.lines" : "scoreboards.block_shuffle.lines";
+        String path = session.getType() == GameSession.Type.ITEM
+                ? "scoreboards.item_shuffle.lines"
+                : "scoreboards.block_shuffle.lines";
         List<String> lines = plugin.getConfigManager().getConfig().getStringList(path);
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             Scoreboard board = scoreboards.get(p.getUniqueId());
-            if (board == null) continue;
+
+            // Pokud hráč nemá board (připojil se mid-game), vytvoříme mu ho
+            if (board == null) {
+                createBoardForPlayer(p, session);
+                board = scoreboards.get(p.getUniqueId());
+                if (board == null) continue;
+            }
 
             Objective obj = board.getObjective("ms_board");
             if (obj == null) continue;
@@ -65,22 +85,23 @@ public class ScoreboardManager {
             for (int i = 0; i < lines.size(); i++) {
                 int score = lines.size() - i;
                 String line = lines.get(i);
+
+                // Nejdříve nahradit PlaceholderAPI placeholdery
                 String papiLine = PlaceholderAPI.setPlaceholders(p, line);
                 Component comp = plugin.getConfigManager().parseComponent(papiLine);
 
-                // Unikátní a neviditelný identifikátor pro řádek (barevné kódy)
-                String entryName = "§" + Integer.toHexString(i % 16) + "§" + Integer.toHexString((i / 16) % 16) + "§r";
+                // Unikátní entry name pro každý řádek
+                String entryName = "\u00A7" + Integer.toHexString(i % 16)
+                        + "\u00A7" + Integer.toHexString((i / 16) % 16) + "\u00A7r";
 
                 Team team = board.getTeam("line_" + i);
                 if (team == null) {
                     team = board.registerNewTeam("line_" + i);
                     team.addEntry(entryName);
                 }
-                team.prefix(comp); // Zde vkládáme plný komponent (s Hex barvami atd.)
+                team.prefix(comp);
 
-                org.bukkit.scoreboard.Score scoreObj = obj.getScore(entryName);
-                scoreObj.setScore(score);
-
+                obj.getScore(entryName).setScore(score);
             }
         }
     }

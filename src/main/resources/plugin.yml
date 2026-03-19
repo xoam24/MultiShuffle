@@ -4,17 +4,16 @@ main: cz.xoam24.multishuffle.MultiShuffle
 api-version: '1.21'
 depend: [PlaceholderAPI]
 authors: [xoam24]
-description: Komplexni kombinace ItemShuffle a BlockShuffle!
 
 commands:
   ms:
-    description: Hlavni prikaz pro MultiShuffle (reload, help)
+    description: Hlavni příkaz pro MultiShuffle (reload, help)
     permission: multishuffle.admin
   is:
-    description: Prikazy pro ItemShuffle
+    description: Příkazy pro ItemShuffle
     permission: multishuffle.admin
   bs:
-    description: Prikazy pro BlockShuffle
+    description: Příkazy pro BlockShuffle
     permission: multishuffle.admin
 
 permissions:

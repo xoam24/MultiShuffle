@@ -18,9 +18,20 @@ messages:
   target_found: "&fNašel jsi &8(&e<target>&8)&f a získáváš bod! Nyní počkej na další kolo."
   target_broadcast: "&fHráč &a<player>&f našel svůj item &8(&e<target>&8)"
 
-  # Odpočty a vyhlašování
+  # Countdown titly (zobrazují se posledních 15s každého kola)
+  # Prázdný title = zobrazí se jen subtitle s číslem — BEZ prefixu
   countdown_title: ""
-  countdown_subtitle: "&e<time>s"
+  countdown_subtitle: "<bold><yellow><time></yellow></bold>"
+
+  # Title po skončení kola (time = 0, ale ještě není poslední kolo)
+  round_end_title: "<gold><bold>Konec kola!</bold></gold>"
+  round_end_subtitle: "<gray>Kolo <white><round></white> / <white><maxround></white>"
+
+  # Title po skončení celé hry (poslední kolo)
+  game_end_title: "<gradient:#ffaa00:#ff5500><bold>Konec hry!</bold></gradient>"
+  game_end_subtitle: "<gray>Počítám výsledky..."
+
+  # Konec hry — broadcast
   game_ending: "<white>Hra skončila! Počítám výherce..."
   place_1: "<gold>1. místo</gold>"
   place_2: "<gray>2. místo</gray>"
@@ -28,7 +39,7 @@ messages:
   place_format: "<place> <white><player></white> - <yellow><points><white> bodů!"
 
   # Hodnoty Placeholderů
-  placeholder_finished: "<green>Splněno</green>"
+  placeholder_finished: "&aSplněno"
   placeholder_ability_active: "&eAktivní"
   placeholder_none: "&cN/A"
 
@@ -37,8 +48,16 @@ game:
   announcement_delay: 2
   default_rounds: 5
 
+abilities:
+  enabled: false
+  rewards:
+    - "SPEED:2:30"
+    - "JUMP_BOOST:1:15"
+
+
 lists:
   use_as_whitelist: true
+
 items:
   - "minecraft:apple"
   - "minecraft:bread"
@@ -278,13 +297,6 @@ blocks:
   - "minecraft:soul_sand"
   - "minecraft:soul_soil"
 
-abilities:
-  enabled: false
-  rewards:
-    - "SPEED:2:30"
-    - "JUMP_BOOST:1:15"
-
-# Konfigurace obou scoreboardů
 scoreboards:
   enabled: true
   item_shuffle:
@@ -292,7 +304,7 @@ scoreboards:
     lines:
       - "<dark_gray>--------------------</dark_gray>"
       - "&fČas: &d%multishuffle_time%"
-      - "&fKolo: &e%multishuffle_round%&f/&6%multishuffle_maxround%</white>"
+      - "&fKolo: &e%multishuffle_round%&f/&6%multishuffle_maxround%"
       - "&fBody: <gold>%multishuffle_points%</gold>"
       - ""
       - "&fItem: <green>%multishuffle_item%</green>"
@@ -302,7 +314,7 @@ scoreboards:
     lines:
       - "<dark_gray>--------------------</dark_gray>"
       - "&fČas: &d%multishuffle_time%"
-      - "&fKolo: &e%multishuffle_round%&f/&6%multishuffle_maxround%</white>"
+      - "&fKolo: &e%multishuffle_round%&f/&6%multishuffle_maxround%"
       - "&fBody: <gold>%multishuffle_points%</gold>"
       - ""
       - "&fBlok: <green>%multishuffle_item%</green>"

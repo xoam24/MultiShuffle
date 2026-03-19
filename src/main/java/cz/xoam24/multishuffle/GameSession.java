@@ -16,63 +16,72 @@ public class GameSession {
 
     private final Type type;
     private final Mode mode;
+    private final int maxRounds;
     private int currentRound;
-    private int maxRounds;
     private int remainingSeconds;
 
-    private final Map<UUID, Integer> playerPoints = new HashMap<>();
-    private final Map<UUID, String> currentTargets = new HashMap<>();
-    private final Set<UUID> finishedThisRound = new HashSet<>();
+    private final Map<UUID, Integer> playerPoints        = new HashMap<>();
+    private final Map<UUID, String>  currentTargets      = new HashMap<>();
+    private final Set<UUID>          finishedThisRound   = new HashSet<>();
 
-    // Sledování již použitých targetů pro každého hráče (neopakují se dokud se pool nevyčerpá)
+    // Per-player history — každý target se hráči přiřadí max jednou za hru
     private final Map<UUID, List<String>> usedTargets = new HashMap<>();
 
-    // Pro SAME mode: sdílený zamíchaný pool pro celou hru
-    private List<String> sharedShuffledPool = null;
-    private int sharedPoolIndex = 0;
+    // Sdílený pool pro SAME mode
+    private List<String> sharedPool  = null;
+    private int          sharedIndex = 0;
 
-    public GameSession(Type type, Mode mode, int maxRounds, int initialTimeSeconds) {
-        this.type = type;
-        this.mode = mode;
-        this.maxRounds = maxRounds;
-        this.remainingSeconds = initialTimeSeconds;
-        this.currentRound = 1;
+    // ── konstruktor ──────────────────────────────────────────────────────────
+
+    public GameSession(Type type, Mode mode, int maxRounds, int initialSeconds) {
+        this.type             = type;
+        this.mode             = mode;
+        this.maxRounds        = maxRounds;
+        this.remainingSeconds = initialSeconds;
+        this.currentRound     = 1;
     }
 
-    public Type getType() { return type; }
-    public Mode getMode() { return mode; }
-    public int getCurrentRound() { return currentRound; }
-    public void incrementRound() { this.currentRound++; }
-    public int getMaxRounds() { return maxRounds; }
-    public int getRemainingSeconds() { return remainingSeconds; }
-    public void setRemainingSeconds(int remainingSeconds) { this.remainingSeconds = remainingSeconds; }
-    public void decrementTime() { this.remainingSeconds--; }
+    // ── základní gettery/settery ─────────────────────────────────────────────
 
-    public int getPoints(UUID uuid) { return playerPoints.getOrDefault(uuid, 0); }
-    public void addPoint(UUID uuid) { playerPoints.put(uuid, getPoints(uuid) + 1); }
-    public Map<UUID, Integer> getAllPoints() { return playerPoints; }
+    public Type getType()                          { return type; }
+    public Mode getMode()                          { return mode; }
+    public int  getCurrentRound()                  { return currentRound; }
+    public void incrementRound()                   { currentRound++; }
+    public int  getMaxRounds()                     { return maxRounds; }
+    public int  getRemainingSeconds()              { return remainingSeconds; }
+    public void setRemainingSeconds(int seconds)   { remainingSeconds = seconds; }
+    public void decrementTime()                    { remainingSeconds--; }
 
-    public String getTarget(UUID uuid) { return currentTargets.get(uuid); }
-    public void setTarget(UUID uuid, String materialKey) { currentTargets.put(uuid, materialKey); }
+    // ── body ─────────────────────────────────────────────────────────────────
 
-    public void markFinished(UUID uuid) { finishedThisRound.add(uuid); }
-    public boolean hasFinished(UUID uuid) { return finishedThisRound.contains(uuid); }
-    public void resetFinishedThisRound() { finishedThisRound.clear(); }
+    public int getPoints(UUID uuid)                { return playerPoints.getOrDefault(uuid, 0); }
+    public void addPoint(UUID uuid)                { playerPoints.merge(uuid, 1, Integer::sum); }
+    public Map<UUID, Integer> getAllPoints()        { return Collections.unmodifiableMap(playerPoints); }
+
+    // ── aktuální targety ─────────────────────────────────────────────────────
+
+    public String getTarget(UUID uuid)                    { return currentTargets.get(uuid); }
+    public void   setTarget(UUID uuid, String materialKey){ currentTargets.put(uuid, materialKey); }
+
+    // ── stav kola ────────────────────────────────────────────────────────────
+
+    public void    markFinished(UUID uuid)       { finishedThisRound.add(uuid); }
+    public boolean hasFinished(UUID uuid)        { return finishedThisRound.contains(uuid); }
+    public void    resetFinishedThisRound()      { finishedThisRound.clear(); }
+
+    // ── unique target picking ─────────────────────────────────────────────────
 
     /**
-     * Vrátí unikátní target pro hráče - každý target se přiřadí max jednou
-     * dokud se pool nevyčerpá, pak se resetuje a znovu zamíchá.
+     * RANDOM mode: vrátí target, který daný hráč v této hře ještě nedostal.
+     * Pokud jsou všechny vyčerpané, pool se resetuje a znovu zamíchá.
      */
     public String pickUniqueTargetForPlayer(UUID uuid, List<String> fullPool) {
         if (fullPool == null || fullPool.isEmpty()) return null;
 
-        List<String> used = usedTargets.computeIfAbsent(uuid, k -> new ArrayList<>());
-
-        // Dostupné = celý pool mínus použité
+        List<String> used      = usedTargets.computeIfAbsent(uuid, k -> new ArrayList<>());
         List<String> available = new ArrayList<>(fullPool);
         available.removeAll(used);
 
-        // Pokud jsou všechny vyčerpané — reset
         if (available.isEmpty()) {
             used.clear();
             available.addAll(fullPool);
@@ -85,26 +94,30 @@ public class GameSession {
     }
 
     /**
-     * Pro SAME mode: inicializuje sdílený zamíchaný pool (zavolat jednou na začátku hry).
+     * SAME mode: inicializuje sdílený zamíchaný pool (volat jednou při startu hry).
      */
     public void initSharedPool(List<String> fullPool) {
-        sharedShuffledPool = new ArrayList<>(fullPool);
-        Collections.shuffle(sharedShuffledPool);
-        sharedPoolIndex = 0;
+        sharedPool  = new ArrayList<>(fullPool);
+        Collections.shuffle(sharedPool);
+        sharedIndex = 0;
     }
 
     /**
-     * Pro SAME mode: vrátí next target ze sdíleného poolu bez opakování.
+     * SAME mode: vrátí next target ze sdíleného poolu (bez opakování).
+     * Po vyčerpání se pool znovu zamíchá.
      */
     public String pickNextSharedTarget() {
-        if (sharedShuffledPool == null || sharedShuffledPool.isEmpty()) return null;
-        if (sharedPoolIndex >= sharedShuffledPool.size()) {
-            Collections.shuffle(sharedShuffledPool);
-            sharedPoolIndex = 0;
+        if (sharedPool == null || sharedPool.isEmpty()) return null;
+        if (sharedIndex >= sharedPool.size()) {
+            Collections.shuffle(sharedPool);
+            sharedIndex = 0;
         }
-        return sharedShuffledPool.get(sharedPoolIndex++);
+        return sharedPool.get(sharedIndex++);
     }
 
+    // ── lifecycle ─────────────────────────────────────────────────────────────
+
+    /** Uklidí veškerá data hráče (disconnect, atd.). */
     public void removePlayer(UUID uuid) {
         usedTargets.remove(uuid);
         currentTargets.remove(uuid);

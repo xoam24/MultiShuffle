@@ -18,7 +18,7 @@ import java.util.UUID;
 public class ScoreboardManager {
 
     private final MultiShuffle plugin;
-    private final Map<UUID, Scoreboard> scoreboards = new HashMap<>();
+    private final Map<UUID, Scoreboard> boards = new HashMap<>();
 
     public ScoreboardManager(MultiShuffle plugin) {
         this.plugin = plugin;
@@ -27,72 +27,60 @@ public class ScoreboardManager {
     // ── lifecycle ─────────────────────────────────────────────────────────────
 
     public void showScoreboards() {
-        if (!plugin.getConfigManager().getConfig().getBoolean("scoreboards.enabled", true)) return;
-
-        GameSession session = plugin.getGameManager().getCurrentSession();
-        if (session == null) return;
-
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            createBoardForPlayer(p, session);
-        }
+        if (!isEnabled()) return;
+        GameSession s = plugin.getGameManager().getCurrentSession();
+        if (s == null) return;
+        for (Player p : Bukkit.getOnlinePlayers()) createBoardForPlayer(p, s);
     }
 
     public void hideScoreboards() {
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
         }
-        scoreboards.clear();
+        boards.clear();
     }
 
-    // ── update ────────────────────────────────────────────────────────────────
+    // ── update — volá se každou sekundu + při události ────────────────────────
 
     public void updateScoreboards() {
-        GameSession session = plugin.getGameManager().getCurrentSession();
-        if (session == null) return;
+        GameSession s = plugin.getGameManager().getCurrentSession();
+        if (s == null || !isEnabled()) return;
 
-        String linesPath = session.getType() == GameSession.Type.ITEM
-                ? "scoreboards.item_shuffle.lines"
-                : "scoreboards.block_shuffle.lines";
-
-        List<String> lines = plugin.getConfigManager().getConfig().getStringList(linesPath);
+        List<String> lines = getLines(s);
 
         for (Player p : Bukkit.getOnlinePlayers()) {
-            Scoreboard board = scoreboards.get(p.getUniqueId());
-
-            // Hráč se připojil mid-game — vytvoříme mu board
+            Scoreboard board = boards.get(p.getUniqueId());
             if (board == null) {
-                createBoardForPlayer(p, session);
-                board = scoreboards.get(p.getUniqueId());
+                createBoardForPlayer(p, s);
+                board = boards.get(p.getUniqueId());
                 if (board == null) continue;
             }
 
-            Objective obj = board.getObjective("ms_board");
+            Objective obj = board.getObjective("ms");
             if (obj == null) continue;
 
             for (int i = 0; i < lines.size(); i++) {
-                String raw      = PlaceholderAPI.setPlaceholders(p, lines.get(i));
-                Component comp  = plugin.getConfigManager().parse(raw);
+                // PlaceholderAPI per-player nahrazení
+                String raw  = PlaceholderAPI.setPlaceholders(p, lines.get(i));
+                Component c = plugin.getConfigManager().parse(raw);
 
-                // Unikátní neviditelný entry (kombinace §-kódů)
-                String entry = "\u00A7" + Integer.toHexString(i % 16)
-                        + "\u00A7" + Integer.toHexString((i / 16) % 16) + "\u00A7r";
+                String entry = entryFor(i);
 
-                Team team = board.getTeam("line_" + i);
+                Team team = board.getTeam("l" + i);
                 if (team == null) {
-                    team = board.registerNewTeam("line_" + i);
+                    team = board.registerNewTeam("l" + i);
                     team.addEntry(entry);
+                    obj.getScore(entry).setScore(lines.size() - i);
                 }
-                team.prefix(comp);
-                obj.getScore(entry).setScore(lines.size() - i);
+                team.prefix(c);
             }
         }
     }
 
     // ── helper ────────────────────────────────────────────────────────────────
 
-    /** Vytvoří nový scoreboard a přiřadí ho hráči. */
-    public void createBoardForPlayer(Player p, GameSession session) {
-        String titlePath = session.getType() == GameSession.Type.ITEM
+    public void createBoardForPlayer(Player p, GameSession s) {
+        String titlePath = s.getType() == GameSession.Type.ITEM
                 ? "scoreboards.item_shuffle.title"
                 : "scoreboards.block_shuffle.title";
 
@@ -100,10 +88,33 @@ public class ScoreboardManager {
                 plugin.getConfigManager().getConfig().getString(titlePath, "MultiShuffle"));
 
         Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
-        Objective obj    = board.registerNewObjective("ms_board", Criteria.DUMMY, title);
+        Objective  obj   = board.registerNewObjective("ms", Criteria.DUMMY, title);
         obj.setDisplaySlot(DisplaySlot.SIDEBAR);
 
         p.setScoreboard(board);
-        scoreboards.put(p.getUniqueId(), board);
+        boards.put(p.getUniqueId(), board);
+    }
+
+    // ── private ───────────────────────────────────────────────────────────────
+
+    private boolean isEnabled() {
+        return plugin.getConfigManager().getConfig().getBoolean("scoreboards.enabled", true);
+    }
+
+    private List<String> getLines(GameSession s) {
+        String path = s.getType() == GameSession.Type.ITEM
+                ? "scoreboards.item_shuffle.lines"
+                : "scoreboards.block_shuffle.lines";
+        return plugin.getConfigManager().getConfig().getStringList(path);
+    }
+
+    /**
+     * Unikátní neviditelný entry identifikátor pro každý řádek.
+     * Kombinuje §-kódy — maximálně 256 řádků.
+     */
+    private static String entryFor(int i) {
+        return "\u00A7" + Integer.toHexString(i % 16)
+                + "\u00A7" + Integer.toHexString((i / 16) % 16)
+                + "\u00A7r";
     }
 }

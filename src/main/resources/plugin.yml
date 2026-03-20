@@ -1,22 +1,28 @@
 name: MultiShuffle
-version: 1.0.0
+version: '1.0.0'
 main: cz.xoam24.multishuffle.MultiShuffle
 api-version: '1.21'
-depend: [PlaceholderAPI]
 authors: [xoam24]
+description: Komplexní kombinace ItemShuffle a BlockShuffle!
+
+depend:
+  - PlaceholderAPI
 
 commands:
   ms:
-    description: Hlavni příkaz pro MultiShuffle (reload, help)
+    description: MultiShuffle admin příkazy
+    usage: /ms <reload|points>
     permission: multishuffle.admin
   is:
-    description: Příkazy pro ItemShuffle
+    description: ItemShuffle příkazy
+    usage: /is <start|stop|skip|mode>
     permission: multishuffle.admin
   bs:
-    description: Příkazy pro BlockShuffle
+    description: BlockShuffle příkazy
+    usage: /bs <start|stop|skip|mode>
     permission: multishuffle.admin
 
 permissions:
   multishuffle.admin:
-    description: Umoznuje spravovat a spoustet hry.
+    description: Přístup ke všem MultiShuffle příkazům
     default: op

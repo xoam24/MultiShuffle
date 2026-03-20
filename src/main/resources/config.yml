@@ -1,63 +1,309 @@
-messages:
-  # Obecné
-  prefix: "&8&l[&e!&8] &e&lEvent &8▪ &r"
-  no_permission: "&cNemáš oprávnění."
-  config_reloaded: "&fConfig úspěšně reloadován!"
-  help: "&6MultiShuffle - Použití: /is nebo /bs"
-  command_usage: "&ePoužití: /<command> <start|stop|skip>"
-  invalid_argument: "&cNeznámý argument."
+# ╔══════════════════════════════════════════════════════════════╗
+# ║              MultiShuffle — config.yml                      ║
+# ║  Všechny hodnoty jsou za běhu načitatelné přes /ms reload   ║
+# ╚══════════════════════════════════════════════════════════════╝
 
-  # Stavy hry
-  game_started: "&fHra byla <green>spuštěna&f."
-  game_stopped: "&fHra byla <red>ukončena&f."
-  game_already_running: "&fHra již běží!"
-  no_game_running: "&fŽádná hra aktuálně &cneběží&f."
-  round_skipped: "&fKolo bylo &epřeskočeno<white>!"
-
-  # Průběh hry
-  target_found: "&fNašel jsi &8(&e<target>&8)&f a získáváš bod! Nyní počkej na další kolo."
-  target_broadcast: "&fHráč &a<player>&f našel svůj item &8(&e<target>&8)"
-
-  # Countdown titly (zobrazují se posledních 15s každého kola)
-  # Prázdný title = zobrazí se jen subtitle s číslem — BEZ prefixu
-  countdown_title: ""
-  countdown_subtitle: "<bold><yellow><time></yellow></bold>"
-
-  # Title po skončení kola (time = 0, ale ještě není poslední kolo)
-  round_end_title: "<gold><bold>Konec kola!</bold></gold>"
-  round_end_subtitle: "<gray>Kolo <white><round></white> / <white><maxround></white>"
-
-  # Title po skončení celé hry (poslední kolo)
-  game_end_title: "<gradient:#ffaa00:#ff5500><bold>Konec hry!</bold></gradient>"
-  game_end_subtitle: "<gray>Počítám výsledky..."
-
-  # Konec hry — broadcast
-  game_ending: "<white>Hra skončila! Počítám výherce..."
-  place_1: "<gold>1. místo</gold>"
-  place_2: "<gray>2. místo</gray>"
-  place_3: "<color:#cd7f32>3. místo</color>"
-  place_format: "<place> <white><player></white> - <yellow><points><white> bodů!"
-
-  # Hodnoty Placeholderů
-  placeholder_finished: "&aSplněno"
-  placeholder_ability_active: "&eAktivní"
-  placeholder_none: "&cN/A"
-
+# ─────────────────────────────────────────────────────────────────
+# HERNÍ NASTAVENÍ
+# ─────────────────────────────────────────────────────────────────
 game:
+  # Délka jednoho kola v sekundách
   default_round_time: 300
-  announcement_delay: 2
+
+  # Počet kol na hru
   default_rounds: 5
 
+  # Od kolika sekund se začne zobrazovat countdown title
+  countdown_start_at: 15
+
+  # Jak dlouho (v milisekundách) trvá pauza mezi koly
+  # V tomto čase je vidět "Konec kola" title
+  # Doporučeno: odpovídá fade_in + stay + fade_out u titles.round_end
+  round_transition_ms: 4200
+
+# ─────────────────────────────────────────────────────────────────
+# TITLY — nastavení časování v milisekundách
+# Každý title má:
+#   fade_in_ms  — čas náběhu (ms)
+#   stay_ms     — čas zobrazení (ms)
+#   fade_out_ms — čas doznění (ms)
+# ─────────────────────────────────────────────────────────────────
+titles:
+  countdown:
+    fade_in_ms:  0
+    stay_ms:     1100
+    fade_out_ms: 150
+
+  round_end:
+    fade_in_ms:  300
+    stay_ms:     2800
+    fade_out_ms: 600  # round_transition_ms by mělo být >= fade_in+stay+fade_out
+
+  game_end:
+    fade_in_ms:  400
+    stay_ms:     3000
+    fade_out_ms: 800
+
+  new_round:
+    fade_in_ms:  200
+    stay_ms:     2000
+    fade_out_ms: 400
+
+# ─────────────────────────────────────────────────────────────────
+# KONEC HRY — systém výherců
+# ─────────────────────────────────────────────────────────────────
+end_game:
+  # Kolik výherců se zobrazí (1–10)
+  # Příklad:
+  #   3  → zobrazí se 1., 2. a 3. místo
+  #   5  → zobrazí se 1.–5. místo
+  #   10 → zobrazí se 1.–10. místo
+  # Pro každé místo musí existovat klíč "place_N" v messages níže
+  max_winners: 3
+
+  # Zpoždění mezi vyhlášením jednotlivých míst (v tickách, 20 = 1s)
+  delay_between_ticks: 60
+
+  # Pořadí vyhlašování:
+  #   true  → ascending  — od posledního místa nahoru (3→2→1), 1. místo je poslední = dramatičtější
+  #   false → descending — od 1. místa dolů (1→2→3)
+  ascending_order: true
+
+# ─────────────────────────────────────────────────────────────────
+# ZPRÁVY — MiniMessage formát + legacy &a §a + hex &#RRGGBB
+# ─────────────────────────────────────────────────────────────────
+messages:
+  prefix: "&8&l[&e!&8] &e&lEvent &8▪ &r"
+
+  # Obecné
+  no_permission:       "&cNemáš oprávnění."
+  config_reloaded:     "&aConfig úspěšně reloadován!"
+  help:                "&6MultiShuffle — /is, /bs, /ms points"
+  command_usage:       "&ePoužití: &f<command>"
+  invalid_argument:    "&cNeznámý argument."
+  invalid_number:      "&cNeplatné číslo: &f<input>"
+  player_not_found:    "&cHráč &f<player> &cnebyl nalezen."
+  mode_set:            "&f<type> mód nastaven na &e<mode>&f."
+
+  # Stavy hry
+  game_started:        "&fHra <green>spuštěna&f. Typ: &e<type>&f, Mód: &e<mode>&f, Kol: &e<rounds>&f."
+  game_stopped:        "&fHra byla <red>ukončena&f."
+  game_already_running:"&fHra již &cběží&f!"
+  no_game_running:     "&fŽádná hra aktuálně &cneběží&f."
+  round_skipped:       "&fKolo bylo &epřeskočeno&f!"
+
+  # Průběh hry
+  target_found:        "<green>✔ Našel jsi <white><target></white> — bod připsán!</green>"
+  target_broadcast:    "<gray>➜ <green><player></green> našel <yellow><target></yellow>!"
+  ability_received:    "<aqua>⚡ Schopnost: <white><effect></white> na <white><duration>s</white>!"
+
+  # Body — příkazy
+  points_set:          "&fHráči &a<player> &fnastaveny body na &e<value>&f."
+  points_set_all:      "&fVšem hráčům nastaveny body na &e<value>&f."
+  points_list_header:  "&6─── Body hráčů ───"
+  points_list_entry:   "&f<player>: &e<points>"
+
+  # Countdown — BEZ prefixu, jen číslo/text
+  countdown_title:    ""
+  countdown_subtitle: "<bold><yellow><time></yellow></bold>"
+
+  # Nové kolo
+  new_round_title:    "<gold><bold>Kolo <round>!</bold></gold>"
+  new_round_subtitle: "<gray>Najdi svůj item / block!"
+
+  # Konec kola (ne poslední)
+  round_end_title:    "<red><bold>Konec kola!</bold></red>"
+  round_end_subtitle: "<gray>Kolo <white><round></white> / <white><maxround></white>"
+
+  # Konec hry (poslední kolo)
+  game_end_title:    "<gradient:#ffaa00:#ff5500><bold>Konec hry!</bold></gradient>"
+  game_end_subtitle: "<gray>Vyhodnocuji výsledky..."
+
+  # Broadcast konec hry
+  game_ending: "<white>⭐ Hra skončila! Vyhodnocuji výherce..."
+
+  # ── Místa výherců ──────────────────────────────────────────────
+  # Přidej kolik chceš — odpovídá end_game.max_winners
+  # Pokud max_winners: 5, musíš mít place_1 až place_5
+  #
+  # Příklad pro 3 výherce (výchozí):
+  place_1: "<gold><bold>🥇 1. místo</bold></gold>"
+  place_2: "<gray><bold>🥈 2. místo</bold></gray>"
+  place_3: "<color:#cd7f32><bold>🥉 3. místo</bold></color>"
+  #
+  # Příklad pro 4–5 výherců (odkomentuj):
+  # place_4: "<dark_gray>4. místo</dark_gray>"
+  # place_5: "<dark_gray>5. místo</dark_gray>"
+
+  place_format: "<place> <white><player></white> <dark_gray>—</dark_gray> <yellow><points> bodů</yellow>"
+
+  # Hodnoty placeholderů
+  placeholder_finished: "<green>✔ Splněno"
+  placeholder_none:     "<red>N/A"
+
+# ─────────────────────────────────────────────────────────────────
+# ZVUKY — každý zvuk lze individuálně vypnout
+# sound:   název zvuku z Bukkit Sound enum
+# volume:  0.0 – 1.0+
+# pitch:   0.5 – 2.0 (1.0 = normální)
+# enabled: true/false
+# ─────────────────────────────────────────────────────────────────
+sounds:
+  game_start:
+    sound: ENTITY_ENDER_DRAGON_GROWL
+    volume: 0.5
+    pitch:  1.2
+    enabled: true
+
+  game_stop:
+    sound: BLOCK_ANVIL_LAND
+    volume: 0.6
+    pitch:  0.8
+    enabled: true
+
+  game_end:
+    sound: UI_TOAST_CHALLENGE_COMPLETE
+    volume: 1.0
+    pitch:  1.0
+    enabled: true
+
+  round_end:
+    sound: ENTITY_PLAYER_LEVELUP
+    volume: 1.0
+    pitch:  1.1
+    enabled: true
+
+  new_round:
+    sound: BLOCK_NOTE_BLOCK_CHIME
+    volume: 0.8
+    pitch:  1.0
+    enabled: true
+
+  # Countdown zvuky (poslední N sekund kola)
+  countdown_tick:
+    sound: UI_BUTTON_CLICK
+    volume: 0.7
+    pitch:  0.9
+    enabled: true
+
+  # Posledních 5 sekund — dynamický pitch (stoupá automaticky)
+  countdown_final:
+    sound: BLOCK_NOTE_BLOCK_PLING
+    volume: 1.0
+    pitch:  0.8   # výchozí pitch — při 5s=0.8, 4s=0.9, 3s=1.0, 2s=1.1, 1s=1.2
+    enabled: true
+
+  # Hráč úspěšně splnil cíl
+  success_self:
+    sound: ENTITY_PLAYER_LEVELUP
+    volume: 1.0
+    pitch:  1.2
+    enabled: true
+
+  success_others:
+    sound: ENTITY_EXPERIENCE_ORB_PICKUP
+    volume: 0.5
+    pitch:  1.0
+    enabled: true
+
+  # Zvuky pro vyhlášení výherců
+  winner_first:
+    sound: UI_TOAST_CHALLENGE_COMPLETE
+    volume: 1.0
+    pitch:  1.2
+    enabled: true
+
+  winner_second:
+    sound: ENTITY_PLAYER_LEVELUP
+    volume: 1.0
+    pitch:  1.0
+    enabled: true
+
+  winner_other:
+    sound: ENTITY_EXPERIENCE_ORB_PICKUP
+    volume: 0.8
+    pitch:  0.9
+    enabled: true
+
+  # Hráč dostane ability
+  ability_received:
+    sound: ENTITY_PLAYER_BURP
+    volume: 0.5
+    pitch:  1.5
+    enabled: true
+
+  # Hráč se připojí k probíhající hře
+  player_join_game:
+    sound: BLOCK_NOTE_BLOCK_PLING
+    volume: 0.8
+    pitch:  1.2
+    enabled: true
+
+# ─────────────────────────────────────────────────────────────────
+# ABILITIES
+# Formát: "effect_name:amplifier:duration_seconds"
+# amplifier: 1-based (1 = level I, 2 = level II)
+# effect_name: minecraft internal name (malá písmena, podtržítka)
+#
+# Kompletní seznam efektů:
+# speed, slowness, haste, mining_fatigue, strength, instant_health,
+# instant_damage, jump_boost, nausea, regeneration, resistance,
+# fire_resistance, water_breathing, invisibility, blindness,
+# night_vision, hunger, weakness, poison, wither, health_boost,
+# absorption, saturation, glowing, levitation, luck, bad_luck,
+# slow_falling, conduit_power, dolphins_grace, hero_of_the_village
+# ─────────────────────────────────────────────────────────────────
 abilities:
-  enabled: false
+  enabled: true
   rewards:
-    - "SPEED:2:30"
-    - "JUMP_BOOST:1:15"
+    - "speed:2:20"
+    - "jump_boost:2:20"
+    - "regeneration:1:15"
+    - "resistance:1:20"
+    - "strength:1:15"
+    - "haste:2:20"
+    - "night_vision:1:30"
+    - "water_breathing:1:30"
+    - "slow_falling:1:15"
+    - "absorption:2:20"
+    - "fire_resistance:1:20"
+    - "health_boost:2:20"
 
+# ─────────────────────────────────────────────────────────────────
+# SCOREBOARD
+# Placeholdery: %multishuffle_time%, %multishuffle_item%,
+#               %multishuffle_points%, %multishuffle_round%,
+#               %multishuffle_maxround%, %multishuffle_mode%,
+#               %multishuffle_type%
+# ─────────────────────────────────────────────────────────────────
+scoreboards:
+  enabled: true
 
-lists:
-  use_as_whitelist: true
+  item_shuffle:
+    title: "<color:#ffaa00><bold>ItemShuffle</bold></color>"
+    lines:
+      - "<dark_gray>━━━━━━━━━━━━━━━━━"
+      - "<white>Čas: <light_purple>%multishuffle_time%"
+      - "<white>Kolo: <yellow>%multishuffle_round%<white>/<gold>%multishuffle_maxround%"
+      - "<white>Body: <gold>%multishuffle_points%"
+      - ""
+      - "<white>Item: <green>%multishuffle_item%"
+      - "<dark_gray>━━━━━━━━━━━━━━━━━"
 
+  block_shuffle:
+    title: "<color:#ffaa00><bold>BlockShuffle</bold></color>"
+    lines:
+      - "<dark_gray>━━━━━━━━━━━━━━━━━"
+      - "<white>Čas: <light_purple>%multishuffle_time%"
+      - "<white>Kolo: <yellow>%multishuffle_round%<white>/<gold>%multishuffle_maxround%"
+      - "<white>Body: <gold>%multishuffle_points%"
+      - ""
+      - "<white>Blok: <green>%multishuffle_item%"
+      - "<dark_gray>━━━━━━━━━━━━━━━━━"
+
+# ─────────────────────────────────────────────────────────────────
+# ITEM & BLOCK LISTY — root-level sekce (NE pod "lists:")
+# ─────────────────────────────────────────────────────────────────
 items:
   - "minecraft:apple"
   - "minecraft:bread"
@@ -296,26 +542,3 @@ blocks:
   - "minecraft:blackstone"
   - "minecraft:soul_sand"
   - "minecraft:soul_soil"
-
-scoreboards:
-  enabled: true
-  item_shuffle:
-    title: "<color:#ffaa00><b>ItemShuffle</b>"
-    lines:
-      - "<dark_gray>--------------------</dark_gray>"
-      - "&fČas: &d%multishuffle_time%"
-      - "&fKolo: &e%multishuffle_round%&f/&6%multishuffle_maxround%"
-      - "&fBody: <gold>%multishuffle_points%</gold>"
-      - ""
-      - "&fItem: <green>%multishuffle_item%</green>"
-      - "<dark_gray>--------------------</dark_gray>"
-  block_shuffle:
-    title: "<color:#ffaa00><b>BlockShuffle</b>"
-    lines:
-      - "<dark_gray>--------------------</dark_gray>"
-      - "&fČas: &d%multishuffle_time%"
-      - "&fKolo: &e%multishuffle_round%&f/&6%multishuffle_maxround%"
-      - "&fBody: <gold>%multishuffle_points%</gold>"
-      - ""
-      - "&fBlok: <green>%multishuffle_item%</green>"
-      - "<dark_gray>--------------------</dark_gray>"

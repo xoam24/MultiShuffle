@@ -6,9 +6,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class MultiShuffle extends JavaPlugin {
 
     private static MultiShuffle instance;
-    private ConfigManager configManager;
-    private SQLiteManager sqliteManager;
-    private GameManager gameManager;
+
+    private ConfigManager    configManager;
+    private SQLiteManager    sqliteManager;
+    private SoundManager     soundManager;
+    private GameManager      gameManager;
     private ScoreboardManager scoreboardManager;
 
     @Override
@@ -16,40 +18,46 @@ public class MultiShuffle extends JavaPlugin {
         instance = this;
         saveDefaultConfig();
 
-        this.configManager = new ConfigManager(this);
-        this.sqliteManager = new SQLiteManager(this);
-        this.sqliteManager.initializeDatabase();
-
-        this.gameManager = new GameManager(this);
-        this.scoreboardManager = new ScoreboardManager(this);
+        configManager    = new ConfigManager(this);
+        sqliteManager    = new SQLiteManager(this);
+        sqliteManager.initializeDatabase();
+        soundManager     = new SoundManager(this);
+        gameManager      = new GameManager(this);
+        scoreboardManager= new ScoreboardManager(this);
 
         getServer().getPluginManager().registerEvents(new GameListener(this), this);
 
-        CommandManager cmdManager = new CommandManager(this);
-        if (getCommand("ms") != null) getCommand("ms").setExecutor(cmdManager);
-        if (getCommand("is") != null) getCommand("is").setExecutor(cmdManager);
-        if (getCommand("bs") != null) getCommand("bs").setExecutor(cmdManager);
+        CommandManager cmd = new CommandManager(this);
+        registerCmd("ms", cmd);
+        registerCmd("is", cmd);
+        registerCmd("bs", cmd);
 
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new PlaceholderHook(this).register();
-            getLogger().info("PlaceholderAPI uspesne napojeno!");
+            getLogger().info("PlaceholderAPI napojeno.");
         } else {
-            getLogger().warning("PlaceholderAPI nebylo nalezeno! Placeholdery nebudou fungovat.");
+            getLogger().warning("PlaceholderAPI nenalezeno — placeholdery nebudou fungovat.");
         }
 
-        getLogger().info("MultiShuffle byl uspesne zapnut! (Paper 1.21.11)");
+        getLogger().info("MultiShuffle " + getDescription().getVersion() + " zapnut.");
     }
 
     @Override
     public void onDisable() {
-        if (gameManager != null) gameManager.stopGame();
-        if (sqliteManager != null) sqliteManager.closeConnection();
-        getLogger().info("MultiShuffle byl vypnut.");
+        if (gameManager  != null) gameManager.stopGame();
+        if (sqliteManager!= null) sqliteManager.closeConnection();
+        getLogger().info("MultiShuffle vypnut.");
     }
 
-    public static MultiShuffle getInstance() { return instance; }
-    public ConfigManager getConfigManager() { return configManager; }
-    public SQLiteManager getSqliteManager() { return sqliteManager; }
-    public GameManager getGameManager() { return gameManager; }
+    private void registerCmd(String name, CommandManager handler) {
+        var cmd = getCommand(name);
+        if (cmd != null) { cmd.setExecutor(handler); cmd.setTabCompleter(handler); }
+    }
+
+    public static MultiShuffle getInstance()        { return instance; }
+    public ConfigManager    getConfigManager()      { return configManager; }
+    public SQLiteManager    getSqliteManager()      { return sqliteManager; }
+    public SoundManager     getSoundManager()       { return soundManager; }
+    public GameManager      getGameManager()        { return gameManager; }
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
 }

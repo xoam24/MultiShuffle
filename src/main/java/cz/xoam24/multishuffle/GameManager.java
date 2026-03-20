@@ -28,6 +28,18 @@ public class GameManager {
     // Mezipaměť aktuálního módu pro každý typ (přetrvává mezi hrami)
     private final Map<GameSession.Type, GameSession.Mode> savedModes = new ConcurrentHashMap<>();
 
+    /**
+     * Čekající délka kola — použije se při startu hry nebo začátku dalšího kola.
+     * -1 = použij hodnotu z configu.
+     */
+    private int pendingRoundTime = -1;
+
+    /**
+     * Čekající počet kol — použije se při startu hry.
+     * -1 = použij hodnotu z configu.
+     */
+    private int pendingRounds = -1;
+
     public GameManager(MultiShuffle plugin) {
         this.plugin = plugin;
         savedModes.put(GameSession.Type.ITEM,  GameSession.Mode.RANDOM);
@@ -43,6 +55,50 @@ public class GameManager {
         savedModes.put(type, mode);
     }
 
+    /**
+     * Nastaví délku kola v sekundách.
+     * Pokud hra NEBĚŽÍ — použije se při příštím startu.
+     * Pokud hra BĚŽÍ   — použije se od začátku dalšího kola.
+     * Vrátí původní hodnotu (pro zprávu o změně).
+     */
+    public int setRoundTime(int newSeconds) {
+        int old = pendingRoundTime > 0 ? pendingRoundTime
+                : plugin.getConfigManager().getDefaultRoundTime();
+        pendingRoundTime = Math.max(10, newSeconds);
+        // Pokud hra běží — aktuální kolo NEměníme, jen nastavíme pending pro další kolo
+        // (handleRoundEnd() při přechodu přečte getEffectiveRoundTime())
+        return old;
+    }
+
+    /**
+     * Nastaví maximální počet kol.
+     * Pokud hra NEBĚŽÍ — použije se při příštím startu.
+     * Pokud hra BĚŽÍ   — okamžitě se změní maxRounds v session.
+     * Vrátí původní hodnotu (pro zprávu o změně).
+     */
+    public int setRounds(int newRounds) {
+        int old = session != null ? session.getMaxRounds()
+                : (pendingRounds > 0 ? pendingRounds : plugin.getConfigManager().getDefaultRounds());
+        pendingRounds = Math.max(1, newRounds);
+        if (session != null) {
+            session.setMaxRounds(pendingRounds);
+            plugin.getScoreboardManager().updateScoreboards();
+        }
+        return old;
+    }
+
+    /** Vrátí efektivní délku kola — pending hodnotu nebo config default. */
+    private int getEffectiveRoundTime() {
+        return pendingRoundTime > 0 ? pendingRoundTime
+                : plugin.getConfigManager().getDefaultRoundTime();
+    }
+
+    /** Vrátí efektivní počet kol — pending hodnotu nebo config default. */
+    private int getEffectiveRounds() {
+        return pendingRounds > 0 ? pendingRounds
+                : plugin.getConfigManager().getDefaultRounds();
+    }
+
     // ── start ─────────────────────────────────────────────────────────────────
 
     public void startGame(GameSession.Type type) {
@@ -51,7 +107,7 @@ public class GameManager {
         ConfigManager cfg  = plugin.getConfigManager();
         GameSession.Mode m = savedModes.get(type);
 
-        session = new GameSession(type, m, cfg.getDefaultRounds(), cfg.getDefaultRoundTime());
+        session = new GameSession(type, m, getEffectiveRounds(), getEffectiveRoundTime());
 
         // Inicializace shared pool pro SAME mode
         if (m == GameSession.Mode.SAME) {
@@ -168,7 +224,7 @@ public class GameManager {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (session == null) return;
                 session.incrementRound();
-                session.setRemainingSeconds(plugin.getConfigManager().getDefaultRoundTime());
+                session.setRemainingSeconds(getEffectiveRoundTime());
                 assignTargets();                          // resetuje i isTransitioning = false
                 plugin.getScoreboardManager().updateScoreboards();
                 showNewRoundTitle();

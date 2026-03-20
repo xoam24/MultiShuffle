@@ -206,6 +206,66 @@ public class CommandManager implements CommandExecutor, TabCompleter {
                         Placeholder.parsed("mode", mode.name().toLowerCase())));
             }
 
+            // /is settings time <seconds>
+            // /is settings round <count>
+            // /bs settings time <seconds>
+            // /bs settings round <count>
+            case "settings" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(plugin.getConfigManager().msg("command_usage",
+                            Placeholder.parsed("command", label + " settings <time|round> <hodnota>")));
+                    return true;
+                }
+
+                int newValue;
+                try {
+                    newValue = Integer.parseInt(args[2]);
+                } catch (NumberFormatException e) {
+                    sender.sendMessage(plugin.getConfigManager().msg("invalid_number",
+                            Placeholder.parsed("input", args[2])));
+                    return true;
+                }
+
+                switch (args[1].toLowerCase()) {
+
+                    case "time" -> {
+                        if (newValue < 10) {
+                            sender.sendMessage(plugin.getConfigManager().msg("settings_time_min"));
+                            return true;
+                        }
+                        int oldValue = plugin.getGameManager().setRoundTime(newValue);
+                        GameSession s = plugin.getGameManager().getCurrentSession();
+                        String when = (s != null)
+                                ? plugin.getConfigManager().raw("settings_applies_next_round")
+                                : plugin.getConfigManager().raw("settings_applies_next_game");
+                        Bukkit.broadcast(plugin.getConfigManager().msg("settings_time_changed",
+                                Placeholder.parsed("old",   String.valueOf(oldValue)),
+                                Placeholder.parsed("new",   String.valueOf(newValue)),
+                                Placeholder.parsed("when",  when),
+                                Placeholder.parsed("sender", sender.getName())));
+                    }
+
+                    case "round" -> {
+                        if (newValue < 1) {
+                            sender.sendMessage(plugin.getConfigManager().msg("settings_round_min"));
+                            return true;
+                        }
+                        int oldValue = plugin.getGameManager().setRounds(newValue);
+                        GameSession s = plugin.getGameManager().getCurrentSession();
+                        String when = (s != null)
+                                ? plugin.getConfigManager().raw("settings_applies_now")
+                                : plugin.getConfigManager().raw("settings_applies_next_game");
+                        Bukkit.broadcast(plugin.getConfigManager().msg("settings_round_changed",
+                                Placeholder.parsed("old",    String.valueOf(oldValue)),
+                                Placeholder.parsed("new",    String.valueOf(newValue)),
+                                Placeholder.parsed("when",   when),
+                                Placeholder.parsed("sender", sender.getName())));
+                    }
+
+                    default -> sender.sendMessage(plugin.getConfigManager().msg("invalid_argument"));
+                }
+            }
+
             default -> sender.sendMessage(plugin.getConfigManager().msg("invalid_argument"));
         }
         return true;
@@ -232,9 +292,18 @@ public class CommandManager implements CommandExecutor, TabCompleter {
                 out.addAll(Arrays.asList("0", "1", "5", "10"));
             }
         } else if (lbl.equals("is") || lbl.equals("bs")) {
-            if (args.length == 1) out.addAll(Arrays.asList("start", "stop", "skip", "mode"));
+            if (args.length == 1)
+                out.addAll(Arrays.asList("start", "stop", "skip", "mode", "settings"));
             else if (args.length == 2 && args[0].equalsIgnoreCase("mode"))
                 out.addAll(Arrays.asList("same", "random"));
+            else if (args.length == 2 && args[0].equalsIgnoreCase("settings"))
+                out.addAll(Arrays.asList("time", "round"));
+            else if (args.length == 3 && args[0].equalsIgnoreCase("settings")) {
+                switch (args[1].toLowerCase()) {
+                    case "time"  -> out.addAll(Arrays.asList("30", "60", "120", "180", "300", "600"));
+                    case "round" -> out.addAll(Arrays.asList("1", "3", "5", "10", "15", "20"));
+                }
+            }
         }
 
         // Filtruj podle toho co uživatel zatím napsal

@@ -15,7 +15,7 @@ public class GameSession {
 
     private final Type type;
     private final Mode mode;
-    private final int  maxRounds;
+    private int  maxRounds;
     private int  currentRound     = 1;
     private int  remainingSeconds;
 
@@ -56,6 +56,7 @@ public class GameSession {
     public int     getCurrentRound()                  { return currentRound; }
     public void    incrementRound()                   { currentRound++; }
     public int     getMaxRounds()                     { return maxRounds; }
+    public void    setMaxRounds(int v)                { maxRounds = Math.max(currentRound, v); }
     public int     getRemainingSeconds()              { return remainingSeconds; }
     public void    setRemainingSeconds(int s)         { remainingSeconds = s; }
     public void    decrementTime()                    { remainingSeconds--; }

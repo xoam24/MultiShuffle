@@ -1,6 +1,7 @@
 # ╔══════════════════════════════════════════════════════════════╗
-# ║              MultiShuffle — config.yml                      ║
-# ║  Všechny hodnoty jsou za běhu načitatelné přes /ms reload   ║
+# ║         MultiShuffle — config.yml  v2.0                     ║
+# ║  Reload: /ms reload                                         ║
+# ║  POZOR: items a blocks jsou na ROOT LEVEL (ne pod lists:)   ║
 # ╚══════════════════════════════════════════════════════════════╝
 
 # ─────────────────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ messages:
   # Stavy hry
   game_started:        "&fHra <green>spuštěna&f. Typ: &e<type>&f, Mód: &e<mode>&f, Kol: &e<rounds>&f."
   game_stopped:        "&fHra byla <red>ukončena&f."
-  game_already_running:  "&fHra již &cběží&f!"
+  game_already_running: "&fHra již &cběží&f!"
   no_game_running:     "&fŽádná hra aktuálně &cneběží&f."
   round_skipped:       "&fKolo bylo &epřeskočeno&f!"
 
@@ -103,7 +104,24 @@ messages:
   points_list_header:  "&6─── Body hráčů ───"
   points_list_entry:   "&f<player>: &e<points>"
 
-  # Countdown — BEZ prefixu, jen číslo/text
+  # Settings příkazy — /is settings a /bs settings
+  # <old>    = původní hodnota
+  # <new>    = nová hodnota
+  # <when>   = kdy se změna projeví (viz settings_applies_* níže)
+  # <sender> = kdo změnu provedl
+  settings_time_changed:  "&f<sender> změnil čas kola: &e<old>s &f→ &a<new>s &8(<when>&8)"
+  settings_round_changed: "&f<sender> změnil počet kol: &e<old> &f→ &a<new> &8(<when>&8)"
+  settings_time_min:      "&cMinimální čas kola je &f10 &csekund."
+  settings_round_min:     "&cMinimální počet kol je &f1&c."
+
+  # Kdy se změna projeví — použije se jako <when> v settings_* zprávách
+  settings_applies_now:        "okamžitě"
+  settings_applies_next_round: "od dalšího kola"
+  settings_applies_next_game:  "od příští hry"
+
+  # Ochrana cílového itemu/bloku po splnění kola
+  # Zobrazí se hráči když se pokusí vyhodit nebo přesunout chráněný item
+  item_protection_blocked: "<red>✘ Tento item nemůžeš odhodit — čekej na další kolo!"
   countdown_title:    ""
   countdown_subtitle: "<bold><yellow><time></yellow></bold>"
 
@@ -268,6 +286,18 @@ abilities:
     - "absorption:2:20"
     - "fire_resistance:1:20"
     - "health_boost:2:20"
+
+# ─────────────────────────────────────────────────────────────────
+# OCHRANA ITEMU / BLOKU PO SPLNĚNÍ KOLA
+# Pokud hráč splní cíl, jeho cílový item/block je chráněn
+# před vyhozením nebo přesunem do jiného inventáře.
+# Ochrana platí do konce kola — na začátku nového kola se resetuje.
+# Funguje pro oba módy: ItemShuffle i BlockShuffle.
+# ─────────────────────────────────────────────────────────────────
+item_protection:
+  # true  = ochrana zapnuta (doporučeno)
+  # false = hráči mohou cílový item kdykoliv vyhodit
+  enabled: true
 
 # ─────────────────────────────────────────────────────────────────
 # SCOREBOARD
@@ -541,3 +571,4 @@ blocks:
   - "minecraft:basalt"
   - "minecraft:blackstone"
   - "minecraft:soul_sand"
+  - "minecraft:soul_soil"

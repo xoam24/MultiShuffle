@@ -88,7 +88,7 @@ messages:
   # Stavy hry
   game_started:        "&fHra <green>spuštěna&f. Typ: &e<type>&f, Mód: &e<mode>&f, Kol: &e<rounds>&f."
   game_stopped:        "&fHra byla <red>ukončena&f."
-  game_already_running:"&fHra již &cběží&f!"
+  game_already_running:  "&fHra již &cběží&f!"
   no_game_running:     "&fŽádná hra aktuálně &cneběží&f."
   round_skipped:       "&fKolo bylo &epřeskočeno&f!"
 
@@ -541,4 +541,3 @@ blocks:
   - "minecraft:basalt"
   - "minecraft:blackstone"
   - "minecraft:soul_sand"
-  - "minecraft:soul_soil"
